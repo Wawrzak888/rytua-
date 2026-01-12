@@ -2,15 +2,16 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Rytuał</title>
     <meta name="theme-color" content="#121212">
+    <!-- Ważne: link do manifestu -->
     <link rel="manifest" href="manifest.json">
     <style>
         :root {
             --bg-color: #121212;
             --card-bg: #1E1E1E;
-            --primary: #00E676; /* Neon Green */
+            --primary: #00E676;
             --danger: #FF5252;
             --text: #FFFFFF;
             --text-sec: #B0B0B0;
@@ -19,19 +20,20 @@
         body {
             background-color: var(--bg-color);
             color: var(--text);
-            font-family: 'Segoe UI', Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin: 0;
+            min-height: 100vh; /* Minimalna wysokość to cały ekran */
             display: flex;
             flex-direction: column;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
-            touch-action: manipulation;
+            overflow-y: auto; /* !!! ZMIANA: Pozwól na przewijanie w pionie !!! */
+            -webkit-overflow-scrolling: touch; /* Płynne przewijanie na iOS/Android */
+            padding-bottom: 40px; /* Zapas na dole, żeby nie ucinało */
         }
 
         header {
-            padding: 20px;
+            padding: 30px 20px 10px;
             text-align: center;
+            flex-shrink: 0; /* Nagłówek się nie zmniejsza */
         }
 
         h1 { margin: 0; font-size: 1.5rem; letter-spacing: 2px; text-transform: uppercase; }
@@ -39,16 +41,18 @@
 
         /* Główny obszar */
         main {
-            flex: 1;
+            flex: 1; /* Wypełnia dostępną przestrzeń */
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             width: 100%;
-            position: relative;
+            min-height: 400px; /* Minimalna wysokość, żeby nie było zgniecione */
+            padding: 20px;
+            box-sizing: border-box;
         }
 
-        /* Wizualizacja Drzewa / Postępu */
+        /* Wizualizacja Drzewa */
         .tree-container {
             width: 200px;
             height: 200px;
@@ -60,6 +64,7 @@
             opacity: 0.3;
             transition: all 1s ease;
             box-shadow: 0 0 30px rgba(0, 230, 118, 0.1);
+            margin-bottom: 30px;
         }
 
         .tree-container.growing {
@@ -68,16 +73,14 @@
             box-shadow: 0 0 60px rgba(0, 230, 118, 0.4);
         }
 
-        .tree-icon {
-            font-size: 80px;
-        }
+        .tree-icon { font-size: 80px; }
 
         /* Timer */
         .timer {
             font-size: 4rem;
             font-weight: bold;
             font-variant-numeric: tabular-nums;
-            margin: 30px 0;
+            margin: 10px 0 30px;
             text-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
 
@@ -94,23 +97,25 @@
             text-transform: uppercase;
             letter-spacing: 1px;
             outline: none;
-            width: 80%;
+            width: 100%;
             max-width: 300px;
+            box-sizing: border-box;
         }
 
-        .btn:active { transform: scale(0.95); }
+        .btn:active { transform: scale(0.98); }
         .btn.primary { background: var(--primary); color: #000; font-weight: bold; }
         .btn.danger { border-color: var(--danger); color: var(--danger); }
-        .btn.danger:active { background: var(--danger); color: #fff; }
 
-        /* Statystyki */
+        /* Statystyki - Dodatkowy margines na dole */
         .stats {
             background: var(--card-bg);
             padding: 20px;
             width: 90%;
+            max-width: 400px;
             border-radius: 15px;
-            margin-bottom: 20px;
+            margin: 0 auto 40px auto; /* Duży margines na dole */
             text-align: center;
+            flex-shrink: 0;
         }
         .stat-val { font-size: 1.5rem; color: var(--primary); font-weight: bold; }
 
@@ -127,10 +132,11 @@
             display: none;
             text-align: center;
             padding: 20px;
+            box-sizing: border-box;
         }
         .overlay h2 { color: var(--danger); margin-bottom: 10px; }
 
-        /* Animacja bicia serca dla 'żywego' drzewa */
+        /* Animacja */
         @keyframes pulse {
             0% { transform: scale(1); }
             50% { transform: scale(1.05); }
@@ -170,14 +176,13 @@
         <button class="btn" onclick="resetApp()">Spróbuj ponownie</button>
     </div>
 
+    <!-- LOGIKA JS BEZ ZMIAN -->
     <script>
-        // --- KONFIGURACJA ---
-        const FOCUS_TIME = 5 * 60; // 5 minut w sekundach (dla testów)
+        const FOCUS_TIME = 5 * 60; 
         let timeLeft = FOCUS_TIME;
         let timerInterval = null;
         let isRunning = false;
         
-        // --- ELEMENTY DOM ---
         const timerDisplay = document.getElementById('timerDisplay');
         const startBtn = document.getElementById('startBtn');
         const treeVisual = document.getElementById('treeVisual');
@@ -185,11 +190,8 @@
         const totalMinutesEl = document.getElementById('totalMinutes');
         const failOverlay = document.getElementById('failOverlay');
 
-        // --- LOCAL STORAGE ---
         let totalMinutes = parseInt(localStorage.getItem('rytual_minutes')) || 0;
         totalMinutesEl.textContent = totalMinutes;
-
-        // --- LOGIKA APLIKACJI ---
 
         function formatTime(seconds) {
             const m = Math.floor(seconds / 60);
@@ -198,9 +200,7 @@
         }
 
         function updateTreeVisual() {
-            // Zmiana wyglądu drzewa w zależności od postępu
             const progress = 1 - (timeLeft / FOCUS_TIME);
-            
             if (progress < 0.3) treeIcon.textContent = '🌱';
             else if (progress < 0.6) treeIcon.textContent = '🌿';
             else if (progress < 0.9) treeIcon.textContent = '🌳';
@@ -216,7 +216,6 @@
             treeVisual.classList.add('growing');
             treeVisual.classList.add('alive');
 
-            // Uruchomienie timera
             timerInterval = setInterval(() => {
                 timeLeft--;
                 timerDisplay.textContent = formatTime(timeLeft);
@@ -232,14 +231,11 @@
             clearInterval(timerInterval);
             isRunning = false;
             treeVisual.classList.remove('alive');
-            
-            // Zapis wyniku
             const mins = Math.floor(FOCUS_TIME / 60);
             totalMinutes += mins;
             localStorage.setItem('rytual_minutes', totalMinutes);
             totalMinutesEl.textContent = totalMinutes;
-
-            alert(`Gratulacje! Urosło nowe drzewo. Masz już ${totalMinutes} minut skupienia.`);
+            alert(`Gratulacje! Masz już ${totalMinutes} minut skupienia.`);
             resetUI();
         }
 
@@ -264,24 +260,19 @@
             treeVisual.classList.remove('growing', 'alive');
         }
 
-        // --- ANTY-CHEAT (DETEKCJA OPUSZCZENIA) ---
-        // Jeśli użytkownik zmieni kartę lub zminimalizuje przeglądarkę
         document.addEventListener("visibilitychange", () => {
             if (document.hidden && isRunning) {
                 failRitual();
             }
         });
 
-        // Rejestracja Service Workera dla PWA
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js')
-                .then(() => console.log('Service Worker zarejestrowany'))
-                .catch(err => console.log('Błąd SW:', err));
+                .then(() => console.log('Service Worker OK'))
+                .catch(err => console.log('SW Error:', err));
         }
 
-        // --- OBSŁUGA PRZYCISKÓW ---
         startBtn.addEventListener('click', startRitual);
-
     </script>
 </body>
 </html>
