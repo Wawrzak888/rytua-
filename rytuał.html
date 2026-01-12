@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rytuał</title>
+    <meta name="theme-color" content="#121212">
+    <link rel="manifest" href="manifest.json">
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1E1E1E;
+            --primary: #00E676; /* Neon Green */
+            --danger: #FF5252;
+            --text: #FFFFFF;
+            --text-sec: #B0B0B0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text);
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        header {
+            padding: 20px;
+            text-align: center;
+        }
+
+        h1 { margin: 0; font-size: 1.5rem; letter-spacing: 2px; text-transform: uppercase; }
+        p { margin: 5px 0 0; color: var(--text-sec); font-size: 0.9rem; }
+
+        /* Główny obszar */
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            position: relative;
+        }
+
+        /* Wizualizacja Drzewa / Postępu */
+        .tree-container {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #2E7D32 0%, transparent 70%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0.3;
+            transition: all 1s ease;
+            box-shadow: 0 0 30px rgba(0, 230, 118, 0.1);
+        }
+
+        .tree-container.growing {
+            opacity: 1;
+            transform: scale(1.1);
+            box-shadow: 0 0 60px rgba(0, 230, 118, 0.4);
+        }
+
+        .tree-icon {
+            font-size: 80px;
+        }
+
+        /* Timer */
+        .timer {
+            font-size: 4rem;
+            font-weight: bold;
+            font-variant-numeric: tabular-nums;
+            margin: 30px 0;
+            text-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        /* Przyciski */
+        .btn {
+            background: var(--card-bg);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            outline: none;
+            width: 80%;
+            max-width: 300px;
+        }
+
+        .btn:active { transform: scale(0.95); }
+        .btn.primary { background: var(--primary); color: #000; font-weight: bold; }
+        .btn.danger { border-color: var(--danger); color: var(--danger); }
+        .btn.danger:active { background: var(--danger); color: #fff; }
+
+        /* Statystyki */
+        .stats {
+            background: var(--card-bg);
+            padding: 20px;
+            width: 90%;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .stat-val { font-size: 1.5rem; color: var(--primary); font-weight: bold; }
+
+        /* Overlay - Blokada */
+        .overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .overlay h2 { color: var(--danger); margin-bottom: 10px; }
+
+        /* Animacja bicia serca dla 'żywego' drzewa */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .alive { animation: pulse 2s infinite; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Rytuał</h1>
+        <p>Odrzuć telefon, hoduj cyfrowy las</p>
+    </header>
+
+    <main>
+        <div class="tree-container" id="treeVisual">
+            <div class="tree-icon" id="treeIcon">🌱</div>
+        </div>
+
+        <div class="timer" id="timerDisplay">05:00</div>
+
+        <button class="btn primary" id="startBtn">Zacznij Rytuał</button>
+    </main>
+
+    <div class="stats">
+        <div>Uzbierane minuty</div>
+        <div class="stat-val" id="totalMinutes">0</div>
+    </div>
+
+    <!-- Ekran przegranej -->
+    <div class="overlay" id="failOverlay">
+        <div style="font-size: 60px;">🥀</div>
+        <h2>Rytuał przerwany!</h2>
+        <p>Drzewo uschło, bo opuściłeś aplikację.</p>
+        <br>
+        <button class="btn" onclick="resetApp()">Spróbuj ponownie</button>
+    </div>
+
+    <script>
+        // --- KONFIGURACJA ---
+        const FOCUS_TIME = 5 * 60; // 5 minut w sekundach (dla testów)
+        let timeLeft = FOCUS_TIME;
+        let timerInterval = null;
+        let isRunning = false;
+        
+        // --- ELEMENTY DOM ---
+        const timerDisplay = document.getElementById('timerDisplay');
+        const startBtn = document.getElementById('startBtn');
+        const treeVisual = document.getElementById('treeVisual');
+        const treeIcon = document.getElementById('treeIcon');
+        const totalMinutesEl = document.getElementById('totalMinutes');
+        const failOverlay = document.getElementById('failOverlay');
+
+        // --- LOCAL STORAGE ---
+        let totalMinutes = parseInt(localStorage.getItem('rytual_minutes')) || 0;
+        totalMinutesEl.textContent = totalMinutes;
+
+        // --- LOGIKA APLIKACJI ---
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+
+        function updateTreeVisual() {
+            // Zmiana wyglądu drzewa w zależności od postępu
+            const progress = 1 - (timeLeft / FOCUS_TIME);
+            
+            if (progress < 0.3) treeIcon.textContent = '🌱';
+            else if (progress < 0.6) treeIcon.textContent = '🌿';
+            else if (progress < 0.9) treeIcon.textContent = '🌳';
+            else treeIcon.textContent = '🌲';
+        }
+
+        function startRitual() {
+            if (isRunning) return;
+            isRunning = true;
+            timeLeft = FOCUS_TIME;
+            
+            startBtn.style.display = 'none';
+            treeVisual.classList.add('growing');
+            treeVisual.classList.add('alive');
+
+            // Uruchomienie timera
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerDisplay.textContent = formatTime(timeLeft);
+                updateTreeVisual();
+
+                if (timeLeft <= 0) {
+                    winRitual();
+                }
+            }, 1000);
+        }
+
+        function winRitual() {
+            clearInterval(timerInterval);
+            isRunning = false;
+            treeVisual.classList.remove('alive');
+            
+            // Zapis wyniku
+            const mins = Math.floor(FOCUS_TIME / 60);
+            totalMinutes += mins;
+            localStorage.setItem('rytual_minutes', totalMinutes);
+            totalMinutesEl.textContent = totalMinutes;
+
+            alert(`Gratulacje! Urosło nowe drzewo. Masz już ${totalMinutes} minut skupienia.`);
+            resetUI();
+        }
+
+        function failRitual() {
+            if (!isRunning) return;
+            clearInterval(timerInterval);
+            isRunning = false;
+            failOverlay.style.display = 'flex';
+            treeVisual.classList.remove('growing', 'alive');
+        }
+
+        function resetApp() {
+            failOverlay.style.display = 'none';
+            resetUI();
+        }
+
+        function resetUI() {
+            timerDisplay.textContent = formatTime(FOCUS_TIME);
+            startBtn.style.display = 'block';
+            startBtn.textContent = 'Zacznij Rytuał';
+            treeIcon.textContent = '🌱';
+            treeVisual.classList.remove('growing', 'alive');
+        }
+
+        // --- ANTY-CHEAT (DETEKCJA OPUSZCZENIA) ---
+        // Jeśli użytkownik zmieni kartę lub zminimalizuje przeglądarkę
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden && isRunning) {
+                failRitual();
+            }
+        });
+
+        // Rejestracja Service Workera dla PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js')
+                .then(() => console.log('Service Worker zarejestrowany'))
+                .catch(err => console.log('Błąd SW:', err));
+        }
+
+        // --- OBSŁUGA PRZYCISKÓW ---
+        startBtn.addEventListener('click', startRitual);
+
+    </script>
+</body>
+</html>
